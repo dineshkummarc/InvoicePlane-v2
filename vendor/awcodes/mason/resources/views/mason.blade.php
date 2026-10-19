@@ -1,0 +1,148 @@
+@php
+    use Filament\Support\Facades\FilamentView;
+    use Filament\Support\Icons\Heroicon;
+    use function Filament\Support\generate_icon_html;
+
+    $id = $getId();
+    $key = $getKey();
+    $statePath = $getStatePath();
+    $isDisabled = $isDisabled();
+    $bricks = $getBricks();
+    $flatBricks = $getFlatBricks();
+    $defaultColorMode = $getDefaultColorMode();
+    $hasColorModeToggle = $hasColorModeToggle();
+    $hasOutline = ! $isDisabled && filled($bricks) && $hasOutline();
+
+    $outlineBricks = [];
+
+    if ($hasOutline) {
+        foreach ($flatBricks as $brick) {
+            $outlineBricks[$brick::getId()] = [
+                "label" => $brick::getLabel(),
+                "icon" => generate_icon_html($brick::getIcon())?->toHtml(),
+            ];
+        }
+    }
+@endphp
+
+<x-dynamic-component :component="$getFieldWrapperView()" :field="$field">
+    <div
+        @if (FilamentView::hasSpaMode())
+            {{-- format-ignore-start --}}x-load="visible || event (x-modal-opened)"{{-- format-ignore-end --}}
+        @else
+            x-load
+        @endif
+        x-load-src="{{ \Filament\Support\Facades\FilamentAsset::getAlpineComponentSrc("mason", "awcodes/mason") }}"
+        x-data="masonComponent({
+                    key: @js($key),
+                    livewireId: @js($this->getId()),
+                    state: $wire.{{ $applyStateBindingModifiers("\$entangle('{$statePath}')", isOptimisticallyLive: false) }},
+                    statePath: @js($statePath),
+                    placeholder: @js($getPlaceholder()),
+                    disabled: @js($isDisabled),
+                    dblClickToEdit: @js($shouldDblClickToEdit()),
+                    context: @js($getRenderContext()),
+                    defaultColorMode: @js($defaultColorMode),
+                    hasColorModeToggle: @js($hasColorModeToggle),
+                    outlineBricks: @js($outlineBricks),
+                })"
+        id="{{ "mason-wrapper-" . $statePath }}"
+        class="mason-wrapper"
+        data-focus="mason-editor"
+        tabindex="-1"
+        x-bind:class="{
+            'fullscreen': fullscreen,
+            'display-mobile': viewport === 'mobile',
+            'display-tablet': viewport === 'tablet',
+            'display-desktop': viewport === 'desktop',
+        }"
+        x-on:keydown.escape.window="fullscreen = false"
+        x-on:click.away="deselectAllBlocks()"
+    >
+        @if (! $isDisabled)
+            <div class="mason-topbar">
+                <x-mason::controls
+                    :has-color-mode-toggle="$hasColorModeToggle"
+                />
+
+                @if ($hasOutline)
+                    <x-filament::icon-button
+                        icon="heroicon-o-queue-list"
+                        color="gray"
+                        x-on:click="outlineSheetOpen = true"
+                        x-bind:aria-expanded="outlineSheetOpen"
+                        class="mason-outline-sheet-trigger"
+                        data-focus-action="mason-outline"
+                        :label="trans('mason::mason.outline.open')"
+                        :tooltip="trans('mason::mason.outline.open')"
+                    />
+                @endif
+            </div>
+        @endif
+
+        <x-filament::input.wrapper
+            :valid="! $errors->has($statePath)"
+            :attributes="
+                \Filament\Support\prepare_inherited_attributes($getExtraAttributeBag())
+                    ->class([
+                        'mason-input-wrapper',
+                    ])
+            "
+        >
+            <div
+                @class([
+                    "flex flex-1",
+                    "flex-row-reverse" =>
+                        $getSidebarPosition() === \Awcodes\Mason\Enums\SidebarPosition::Start,
+                ])
+            >
+                @if ($hasOutline)
+                    <div
+                        class="mason-outline-panel"
+                        data-focus="mason-outline-panel"
+                    >
+                        <div class="mason-outline-panel-header">
+                            {{ trans("mason::mason.outline.label") }}
+                        </div>
+                        <x-mason::outline />
+                    </div>
+                @endif
+
+                <div
+                    wire:key="{{ "mason-editor-" . $statePath }}"
+                    wire:ignore
+                    {{
+                        \Filament\Support\prepare_inherited_attributes($getExtraInputAttributeBag())->class([
+                            "mason-editor-wrapper",
+                        ])
+                    }}
+                >
+                    <iframe
+                        x-ref="previewIframe"
+                        x-init="initPreviewIframe($el)"
+                        name="{{ "mason-preview-iframe-" . $statePath }}"
+                        class="mason-iframe"
+                    ></iframe>
+                </div>
+
+                @if (! $isDisabled && filled($bricks))
+                    <x-mason::sidebar
+                        :bricks="$bricks"
+                        :has-grid-actions="$hasGridActions()"
+                        :has-color-mode-toggle="$hasColorModeToggle"
+                        :has-outline="$hasOutline"
+                        wire:key="sidebar-{{ hash('sha256', json_encode($flatBricks)) }}"
+                    />
+                @endif
+            </div>
+        </x-filament::input.wrapper>
+
+        @if (! $isDisabled && filled($bricks))
+            <x-mason::brick-picker-modal :bricks="$bricks" />
+        @endif
+
+        @if ($hasOutline)
+            <x-mason::outline-sheet :id="'mason-outline-sheet-' . $key" />
+        @endif
+    </div>
+</x-dynamic-component>
