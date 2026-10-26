@@ -31,6 +31,7 @@ use Modules\Core\Filament\Admin\Resources\TaxRates\TaxRateResource;
 use Modules\Core\Filament\Admin\Resources\Users\UserResource;
 use Modules\Core\Filament\Pages\Auth\EditProfile;
 use Modules\Core\Filament\Pages\Auth\Login;
+use Modules\Core\Http\Middleware\SetUserLocale;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -173,12 +174,12 @@ class AdminPanelProvider extends PanelProvider
                 FilamentInfoWidget::class,
             ])
             ->userMenuItems([
-                'profile' => MenuItem::make()->label(trans('ip.edit_profile')),
+                'profile' => MenuItem::make()->label(fn () => trans('ip.edit_profile')),
                 MenuItem::make()
-                    ->label(trans('ip.settings'))
+                    ->label(fn () => trans('ip.settings'))
                     ->url('/admin/settings')
                     ->icon('heroicon-o-cog-6-tooth'),
-                'logout' => MenuItem::make()->label(trans('ip.logout')),
+                'logout' => MenuItem::make()->label(fn () => trans('ip.logout')),
             ])
             ->middleware([
                 EncryptCookies::class,
@@ -191,6 +192,7 @@ class AdminPanelProvider extends PanelProvider
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
             ])
+            ->middleware([SetUserLocale::class], isPersistent: true)
             ->authMiddleware([
                 Authenticate::class,
             ]);
